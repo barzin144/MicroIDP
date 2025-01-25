@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.DataProtection;
 using System.IO;
 using System.Threading.Tasks;
 using System.Text.Json;
+using System.Security.Claims;
 
 namespace IoCConfig
 {
@@ -49,6 +50,14 @@ namespace IoCConfig
 				options.ClientId = configuration["OAuth:GoogleClientId"] ?? "";
 				options.ClientSecret = configuration["OAuth:GoogleClientSecret"] ?? "";
 				options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+				options.Events.OnCreatingTicket = ctx =>
+				{
+					if (ctx.User.TryGetProperty("picture", out var value))
+					{
+						ctx.Identity?.AddClaim(new Claim(ClaimTypes.Uri, value.ToString()));
+					}
+					return Task.CompletedTask;
+				};
 			})
 			.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 			{

@@ -205,6 +205,8 @@ namespace WebApi.Controllers
 			var nameIdentifier = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
 			ArgumentNullException.ThrowIfNull(nameIdentifier, nameof(nameIdentifier));
 
+			var profilePicture = claims.FirstOrDefault(c => c.Type == ClaimTypes.Uri)?.Value;
+
 			var user = await _userService.FindUserByLoginAsync(email, Provider.Google, nameIdentifier);
 
 			if (user == null)
@@ -245,6 +247,7 @@ namespace WebApi.Controllers
 					{
 						Email = user.Email,
 						Name = user.Name,
+						ProfilePicture = profilePicture,
 						Provider = user.Provider.ToString()
 					}
 				});
