@@ -36,7 +36,7 @@ var app = builder.Build();
 if (configuration.GetValue<bool>("EnableSwagger"))
 {
 	app.UseSwagger();
-	app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "Micro IDP API V1"); });
+	app.UseSwaggerUI();
 }
 
 app.UseCors("CorsPolicy");
