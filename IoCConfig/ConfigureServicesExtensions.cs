@@ -58,6 +58,12 @@ namespace IoCConfig
 					}
 					return Task.CompletedTask;
 				};
+				options.Events.OnRemoteFailure = ctx =>
+				{
+					ctx.Response.Redirect(configuration["OAuth:GoogleCallbackURL"]);
+					ctx.HandleResponse();
+					return Task.CompletedTask;
+				};
 			})
 			.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 			{
