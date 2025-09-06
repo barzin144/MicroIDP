@@ -1,4 +1,5 @@
 using IoCConfig;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using WebApi.ViewModels;
@@ -38,6 +39,15 @@ if (configuration.GetValue<bool>("EnableSwagger"))
 	app.UseSwagger();
 	app.UseSwaggerUI();
 }
+
+var options = new ForwardedHeadersOptions
+{
+	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+options.KnownNetworks.Clear();
+options.KnownProxies.Clear();
+
+app.UseForwardedHeaders(options);
 
 app.UseCors("CorsPolicy");
 app.UseAuthentication();
