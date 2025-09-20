@@ -71,10 +71,10 @@ using (var rsa = RSA.Create(2048))
 
 ```shell
 openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
-cat private_key.pem | base64
+openssl pkey -in private_key.pem -outform DER | base64 -w 0
 
 openssl rsa -pubout -in private_key.pem -out public_key.pem
-cat public_key.pem | base64
+openssl pkey -in public_key.pem -outform DER | base64 -w 0
 ```
 
 Replace the `PRIVATE_KEY` placeholder in `.env` with the generated private key.
