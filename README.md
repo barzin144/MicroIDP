@@ -74,7 +74,7 @@ openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:204
 openssl pkey -in private_key.pem -outform DER | base64 -w 0
 
 openssl rsa -pubout -in private_key.pem -out public_key.pem
-openssl pkey -in public_key.pem -outform DER | base64 -w 0
+openssl rsa -pubin -in public_key.pem -outform DER | base64 -w 0
 ```
 
 Replace the `PRIVATE_KEY` placeholder in `.env` with the generated private key.
