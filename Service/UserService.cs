@@ -75,12 +75,17 @@ namespace Service
 			return await FindUserByIdAsync(userId);
 		}
 
-		public async Task<bool> ChangePassword(string userId, string newPassword)
+		public async Task<bool> ChangePasswordAsync(string userId, string newPassword)
 		{
 			string newPasswordHash = _securityService.GetSha256Hash(newPassword);
 			string newSerialNumber = _securityService.CreateCryptographicallySecureGuid().ToString();
 
 			return await _userRepository.ChangePassword(userId, newPasswordHash, newSerialNumber);
+		}
+
+		public Task<bool> SetEmailVerifiedAsync(string userId)
+		{
+			return _userRepository.SetEmailVerifiedAsync(userId);
 		}
 	}
 }

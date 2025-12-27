@@ -1,0 +1,18 @@
+
+Verify your email address
+
+Thanks for signing up for #application_name#.
+
+To complete your registration and secure your account, please verify your email address by opening the link below.
+
+Verify your email address:
+#verification_link#
+
+This verification link will expire in 24 hours.
+
+If you did not create an account with #application_name#, you can safely ignore this email.
+
+For security reasons, please do not share this link with anyone.
+
+Stay secure,
+#application_name# team

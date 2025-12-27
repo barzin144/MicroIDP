@@ -136,5 +136,22 @@ namespace DataAccess
 				throw;
 			}
 		}
+
+		public async Task<bool> SetEmailVerifiedAsync(string userId)
+		{
+			try
+			{
+				FilterDefinition<User> filter = new FilterDefinitionBuilder<User>().Eq(x => x.Id, userId);
+				UpdateDefinition<User> update = new UpdateDefinitionBuilder<User>().Set(x => x.IsEmailVerified, true);
+
+				await collection.FindOneAndUpdateAsync(filter, update);
+
+				return true;
+			}
+			catch
+			{
+				throw;
+			}
+		}
 	}
 }

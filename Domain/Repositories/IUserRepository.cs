@@ -9,6 +9,7 @@ namespace Domain.Repositories
 	{
 		Task<User> FindUserAsync(Expression<Func<User, bool>> filter);
 		Task<bool> DeleteUserTokensByUserIdAsync(string userId);
+		Task<bool> SetEmailVerifiedAsync(string userId);
 		Task<bool> AddUserTokenByUserIdAsync(string userId, Token token);
 		Task<(Token token, User user)> FindUserAndTokenByRefreshTokenAsync(string refreshToken);
 		Task<bool> DeleteExpiredTokensAsync(string userId);

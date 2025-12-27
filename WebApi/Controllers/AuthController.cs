@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using Domain.Entities;
 using Domain.Enums;
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using WebApi.ViewModels;
 
@@ -22,19 +24,31 @@ namespace WebApi.Controllers
 	{
 		private readonly OAuthOptions _oAuthOptions;
 		private readonly JwtOptions _jwtOptions;
+		private readonly IDataProtector _jwtDataProtector;
 		private readonly IDataProtector _dataProtector;
 		private readonly IUserService _userService;
 		private readonly ISecurityService _securityService;
 		private readonly IJwtTokenService _jwtTokenService;
+		private readonly IEmailService _emailService;
 
-		public AuthController(IOptions<OAuthOptions> oAuthOptions, IOptions<JwtOptions> jwtOptions, IDataProtectionProvider dataProtectionProvider, IUserService userService, ISecurityService securityService, IJwtTokenService jwtTokenService)
+		public AuthController(
+			IOptions<OAuthOptions> oAuthOptions,
+			IOptions<Domain.Models.DataProtectionOptions> dataProtectionOptions,
+			IOptions<JwtOptions> jwtOptions,
+			IDataProtectionProvider dataProtectionProvider,
+			IUserService userService,
+			ISecurityService securityService,
+			IJwtTokenService jwtTokenService,
+			IEmailService emailService)
 		{
 			_oAuthOptions = oAuthOptions.Value;
 			_jwtOptions = jwtOptions.Value;
-			_dataProtector = dataProtectionProvider.CreateProtector(_jwtOptions.DataProtectionPurpose);
+			_jwtDataProtector = dataProtectionProvider.CreateProtector(_jwtOptions.DataProtectionPurpose);
+			_dataProtector = dataProtectionProvider.CreateProtector(dataProtectionOptions.Value.GeneralPurposeKey);
 			_userService = userService;
 			_securityService = securityService;
 			_jwtTokenService = jwtTokenService;
+			_emailService = emailService;
 		}
 
 		[HttpPost("login")]
@@ -60,6 +74,15 @@ namespace WebApi.Controllers
 						Message = "User account is inactive."
 					});
 			}
+			if (user.IsEmailVerified == false)
+			{
+				return Unauthorized(
+					new ApiResponseViewModel
+					{
+						Success = false,
+						Message = "Email address is not verified."
+					});
+			}
 
 			JwtTokensData jwtToken = _jwtTokenService.CreateJwtTokens(user);
 
@@ -79,9 +102,105 @@ namespace WebApi.Controllers
 					{
 						Email = user.Email,
 						Name = user.Name,
-						Provider = user.Provider.ToString()
+						Provider = user.Provider.ToString(),
+						IsEmailVerified = user.IsEmailVerified
 					}
 				});
+		}
+
+		[HttpGet("verify-email")]
+		public async Task<ActionResult<ApiResponseViewModel>> VerifyEmail(string token)
+		{
+			var emailVerificationCode = JsonSerializer.Deserialize<EmailVerificationCode>(_dataProtector.Unprotect(Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token))));
+			if (emailVerificationCode == null || emailVerificationCode.ExpiredAt < DateTime.UtcNow)
+			{
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "Invalid or expired verification code." });
+			}
+
+			var user = await _userService.FindUserByEmailAsync(emailVerificationCode.Email);
+			if (user == null)
+			{
+				return NotFound(new ApiResponseViewModel { Success = false, Message = "User not found." });
+			}
+
+			if (user.IsEmailVerified)
+			{
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "Email already verified." });
+			}
+
+			await _userService.SetEmailVerifiedAsync(user.Id);
+
+			return Ok(new ApiResponseViewModel { Success = true, Message = "Email verified successfully." });
+		}
+
+		[HttpPost("reset-password")]
+		public async Task<ActionResult<ApiResponseViewModel>> ResetPassword(ResetPasswordViewModel model)
+		{
+			var resetPasswordCode = JsonSerializer.Deserialize<ResetPasswordCode>(_dataProtector.Unprotect(Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(model.Token))));
+			if (resetPasswordCode == null || resetPasswordCode.ExpiredAt < DateTime.UtcNow)
+			{
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "Invalid or expired reset password code." });
+			}
+
+			var user = await _userService.FindUserByEmailAsync(resetPasswordCode.Email);
+			if (user == null)
+			{
+				return NotFound(new ApiResponseViewModel { Success = false, Message = "User not found." });
+			}
+
+			await _userService.ChangePasswordAsync(user.Id, model.NewPassword);
+
+			return Ok(new ApiResponseViewModel { Success = true, Message = "Password reset successfully." });
+		}
+
+		[HttpPost("resend-verification-email")]
+		public async Task<ActionResult<ApiResponseViewModel>> ResendVerificationEmail(EmailViewModel model)
+		{
+			var user = await _userService.FindUserByEmailAsync(model.Email);
+			if (user == null)
+			{
+				return Ok(new ApiResponseViewModel { Success = true, Message = "Verification email sent successfully." });
+			}
+
+			if (user.IsEmailVerified)
+			{
+				return Ok(new ApiResponseViewModel { Success = true, Message = "Verification email sent successfully." });
+			}
+			var emailVerificationCode = new EmailVerificationCode
+			{
+				Email = user.Email,
+				ExpiredAt = DateTime.UtcNow.AddHours(24)
+			};
+
+			var encodedVerificationCode = _dataProtector.Protect(JsonSerializer.Serialize(emailVerificationCode));
+			var token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(encodedVerificationCode));
+
+			_ = Task.Run(() => _emailService.SendVerificationEmailAsync(user.Email, token));
+
+			return Ok(new ApiResponseViewModel { Success = true, Message = "Verification email sent successfully." });
+		}
+
+		[HttpPost("forgot-password")]
+		public async Task<ActionResult<ApiResponseViewModel>> ForgotPassword(EmailViewModel model)
+		{
+			var user = await _userService.FindUserByEmailAsync(model.Email);
+			if (user == null)
+			{
+				return Ok(new ApiResponseViewModel { Success = true, Message = "Reset password email sent successfully." });
+			}
+
+			var resetPasswordCode = new ResetPasswordCode
+			{
+				Email = user.Email,
+				ExpiredAt = DateTime.UtcNow.AddHours(24)
+			};
+
+			var encodedResetPasswordCode = _dataProtector.Protect(JsonSerializer.Serialize(resetPasswordCode));
+			var token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(encodedResetPasswordCode));
+
+			_ = Task.Run(() => _emailService.SendResetPasswordEmailAsync(user.Email, token));
+
+			return Ok(new ApiResponseViewModel { Success = true, Message = "Reset password email sent successfully." });
 		}
 
 		[HttpPost("register")]
@@ -102,15 +221,16 @@ namespace WebApi.Controllers
 
 				await _userService.AddUserAsync(newUser);
 
-				JwtTokensData jwtToken = _jwtTokenService.CreateJwtTokens(newUser);
-
-				await _jwtTokenService.AddUserTokenAsync(newUser, jwtToken.RefreshTokenSerial, jwtToken.AccessToken, null);
-
-				AppendCookie(Response, new AuthCookie
+				var emailVerificationCode = new EmailVerificationCode
 				{
-					AccessToken = jwtToken.AccessToken,
-					RefreshToken = jwtToken.RefreshToken,
-				});
+					Email = newUser.Email,
+					ExpiredAt = DateTime.UtcNow.AddHours(24)
+				};
+
+				var encodedVerificationCode = _dataProtector.Protect(JsonSerializer.Serialize(emailVerificationCode));
+				var token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(encodedVerificationCode));
+
+				_ = Task.Run(() => _emailService.SendVerificationEmailAsync(newUser.Email, token));
 
 				return Ok(
 					new ApiResponseViewModel<AuthResponseViewModel>
@@ -120,7 +240,8 @@ namespace WebApi.Controllers
 						{
 							Email = newUser.Email,
 							Name = newUser.Name,
-							Provider = newUser.Provider.ToString()
+							Provider = newUser.Provider.ToString(),
+							IsEmailVerified = newUser.IsEmailVerified
 						}
 					}
 				);
@@ -151,7 +272,7 @@ namespace WebApi.Controllers
 				});
 			}
 
-			if (await _userService.ChangePassword(user.Id, model.NewPassword))
+			if (await _userService.ChangePasswordAsync(user.Id, model.NewPassword))
 			{
 				return Ok(new ApiResponseViewModel
 				{
@@ -248,7 +369,8 @@ namespace WebApi.Controllers
 						Email = user.Email,
 						Name = user.Name,
 						ProfilePicture = profilePicture,
-						Provider = user.Provider.ToString()
+						Provider = user.Provider.ToString(),
+						IsEmailVerified = user.IsEmailVerified
 					}
 				});
 		}
@@ -292,7 +414,8 @@ namespace WebApi.Controllers
 					{
 						Email = user.Email,
 						Name = user.Name,
-						Provider = user.Provider.ToString()
+						Provider = user.Provider.ToString(),
+						IsEmailVerified = user.IsEmailVerified
 					}
 				});
 			}
@@ -324,7 +447,7 @@ namespace WebApi.Controllers
 
 		private void AppendCookie(HttpResponse response, AuthCookie authCookie)
 		{
-			response.Cookies.Append(_jwtOptions.CookieName, _dataProtector.Protect(JsonSerializer.Serialize(authCookie)), new CookieOptions
+			response.Cookies.Append(_jwtOptions.CookieName, _jwtDataProtector.Protect(JsonSerializer.Serialize(authCookie)), new CookieOptions
 			{
 				HttpOnly = true,
 				Secure = true,
@@ -337,7 +460,7 @@ namespace WebApi.Controllers
 		{
 			if (request.Cookies.TryGetValue(_jwtOptions.CookieName, out string? cookieValue))
 			{
-				return JsonSerializer.Deserialize<AuthCookie>(_dataProtector.Unprotect(cookieValue)) ?? null;
+				return JsonSerializer.Deserialize<AuthCookie>(_jwtDataProtector.Unprotect(cookieValue)) ?? null;
 			}
 			return null;
 		}

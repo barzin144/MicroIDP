@@ -117,6 +117,7 @@ namespace IoCConfig
 			services.AddScoped<IUserService, UserService>();
 			services.AddSingleton<ISecurityService, SecurityService>();
 			services.AddScoped<IUserRepository, UserRepository>();
+			services.AddScoped<IEmailService, EmailService>();
 			services.AddHttpContextAccessor();
 		}
 
@@ -124,6 +125,9 @@ namespace IoCConfig
 		{
 			services.AddOptions<JwtOptions>().Bind(configuration.GetSection("Jwt"));
 			services.AddOptions<OAuthOptions>().Bind(configuration.GetSection("OAuth"));
+			services.AddOptions<SMTPOptions>().Bind(configuration.GetSection("SMTP"));
+			services.AddOptions<EmailTemplateOptions>().Bind(configuration.GetSection("EmailTemplate"));
+			services.AddOptions<Domain.Models.DataProtectionOptions>().Bind(configuration.GetSection("DataProtection"));
 		}
 
 		public static void AddCustomSwagger(this IServiceCollection services)
