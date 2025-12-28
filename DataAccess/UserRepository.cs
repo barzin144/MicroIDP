@@ -122,7 +122,7 @@ namespace DataAccess
 			}
 		}
 
-		public async Task<bool> ChangePassword(string userId, string newPasswordHash, string newSerialNumber)
+		public async Task<bool> ChangePasswordAsync(string userId, string newPasswordHash, string newSerialNumber)
 		{
 			UpdateDefinition<User> update = new UpdateDefinitionBuilder<User>().Set(i => i.ProviderKey, newPasswordHash).Set(x => x.SerialNumber, newSerialNumber);
 

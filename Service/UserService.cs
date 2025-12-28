@@ -80,7 +80,7 @@ namespace Service
 			string newPasswordHash = _securityService.GetSha256Hash(newPassword);
 			string newSerialNumber = _securityService.CreateCryptographicallySecureGuid().ToString();
 
-			return await _userRepository.ChangePassword(userId, newPasswordHash, newSerialNumber);
+			return await _userRepository.ChangePasswordAsync(userId, newPasswordHash, newSerialNumber);
 		}
 
 		public Task<bool> SetEmailVerifiedAsync(string userId)

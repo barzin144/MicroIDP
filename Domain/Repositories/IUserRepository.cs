@@ -14,6 +14,6 @@ namespace Domain.Repositories
 		Task<(Token token, User user)> FindUserAndTokenByRefreshTokenAsync(string refreshToken);
 		Task<bool> DeleteExpiredTokensAsync(string userId);
 		Task<bool> DeleteTokensWithSameRefreshTokenSourceAsync(string refreshTokenIdHashSource, string userId);
-		Task<bool> ChangePassword(string userId, string newPasswordHash, string newSerialNumber);
+		Task<bool> ChangePasswordAsync(string userId, string newPasswordHash, string newSerialNumber);
 	}
 }

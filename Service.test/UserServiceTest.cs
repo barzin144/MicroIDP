@@ -161,8 +161,8 @@ public class UserServiceTest
 		string userID = "abc";
 		string newPasswordHash = _securityService.GetSha256Hash(newPassword);
 		//Act
-		var result = _userService.ChangePassword(userID, newPassword);
+		var result = _userService.ChangePasswordAsync(userID, newPassword);
 		//Assert
-		_userRepository.Verify(x => x.ChangePassword(userID, newPasswordHash, It.IsAny<string>()), Times.Once);
+		_userRepository.Verify(x => x.ChangePasswordAsync(userID, newPasswordHash, It.IsAny<string>()), Times.Once);
 	}
 }
