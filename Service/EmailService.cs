@@ -17,7 +17,7 @@ public class EmailService : IEmailService
     private readonly string _username;
     private readonly string _password;
     private readonly IWebHostEnvironment _env;
-    private readonly string _baseUrl;
+    private readonly EmailTemplateOptions _templateOptions;
     private readonly string _applicationName;
     public EmailService(IOptions<SMTPOptions> smtpOptions, IWebHostEnvironment env, IOptions<EmailTemplateOptions> templateOptions)
     {
@@ -26,7 +26,7 @@ public class EmailService : IEmailService
         _username = smtpOptions.Value.Username;
         _password = smtpOptions.Value.Password;
         _env = env;
-        _baseUrl = templateOptions.Value.BaseUrl;
+        _templateOptions = templateOptions.Value;
         _applicationName = templateOptions.Value.ApplicationName;
     }
     public async Task SendEmailAsync(string to, string subject, string body, string plainTextBody = null)
@@ -55,11 +55,11 @@ public class EmailService : IEmailService
         var bodyPlainText = File.ReadAllText(emailTemplatePlainText);
 
         bodyHtml = bodyHtml
-        .Replace("#verification_link#", $"{_baseUrl}/api/auth/verify-email?token={verificationCode}")
+        .Replace("#verification_link#", $"{_templateOptions.EmailVerificationUrl}/?token={verificationCode}")
         .Replace("#application_name#", _applicationName);
 
         bodyPlainText = bodyPlainText
-        .Replace("#verification_link#", $"{_baseUrl}/api/auth/verify-email?token={verificationCode}")
+        .Replace("#verification_link#", $"{_templateOptions.EmailVerificationUrl}/?token={verificationCode}")
         .Replace("#application_name#", _applicationName);
 
         await SendEmailAsync(to, "Email Verification", bodyHtml, bodyPlainText);
@@ -73,11 +73,11 @@ public class EmailService : IEmailService
         var bodyPlainText = File.ReadAllText(emailTemplatePlainText);
 
         bodyHtml = bodyHtml
-        .Replace("#reset_password_link#", $"{_baseUrl}/api/auth/reset-password?token={resetPasswordCode}")
+        .Replace("#reset_password_link#", $"{_templateOptions.ResetPasswordUrl}/?token={resetPasswordCode}")
         .Replace("#application_name#", _applicationName);
 
         bodyPlainText = bodyPlainText
-        .Replace("#reset_password_link#", $"{_baseUrl}/api/auth/reset-password?token={resetPasswordCode}")
+        .Replace("#reset_password_link#", $"{_templateOptions.ResetPasswordUrl}/?token={resetPasswordCode}")
         .Replace("#application_name#", _applicationName);
 
         await SendEmailAsync(to, "Reset Password", bodyHtml, bodyPlainText);

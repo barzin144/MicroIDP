@@ -1,10 +1,9 @@
 services:
   webapi:
     env_file: ".env"
-    image: barzinassa/microidp:latest
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - 8000:80
       - 8001:443
