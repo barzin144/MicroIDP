@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Domain.Entities;
@@ -67,7 +68,7 @@ namespace WebApi.Controllers
 			}
 			if (user.IsActive == false)
 			{
-				return Unauthorized(
+				return StatusCode((int)HttpStatusCode.Forbidden,
 					new ApiResponseViewModel
 					{
 						Success = false,
@@ -76,7 +77,7 @@ namespace WebApi.Controllers
 			}
 			if (user.IsEmailVerified == false)
 			{
-				return Unauthorized(
+				return StatusCode((int)HttpStatusCode.Forbidden,
 					new ApiResponseViewModel
 					{
 						Success = false,
