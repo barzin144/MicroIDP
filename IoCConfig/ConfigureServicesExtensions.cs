@@ -121,6 +121,17 @@ namespace IoCConfig
 			services.AddHttpContextAccessor();
 		}
 
+		public static void AddTurnstileService(this IServiceCollection services, IConfiguration configuration)
+		{
+			var turnstileOptions = new TurnstileOptions();
+			configuration.GetSection("Turnstile").Bind(turnstileOptions);
+			services.AddSingleton(turnstileOptions);
+			services.AddHttpClient<ITurnstileService, TurnstileService>(client =>
+			{
+				client.BaseAddress = new Uri(turnstileOptions.ChallengeBaseUrl);
+			});
+		}
+
 		public static void AddCustomOptions(this IServiceCollection services, IConfiguration configuration)
 		{
 			services.AddOptions<JwtOptions>().Bind(configuration.GetSection("Jwt"));

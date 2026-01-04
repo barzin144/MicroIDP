@@ -7,4 +7,6 @@ public class EmailViewModel
     [Required]
     [EmailAddress]
     public required string Email { get; set; }
+    [Required]
+    public required string TurnstileToken { get; set; }
 }

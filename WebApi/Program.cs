@@ -13,6 +13,7 @@ Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(configuration).Cre
 services.AddCustomOptions(configuration);
 services.AddCustomDataProtection(configuration);
 services.AddCustomServices();
+services.AddTurnstileService(configuration);
 services.AddCustomAuthentication(configuration);
 services.AddCustomCors(configuration);
 services.AddControllers().ConfigureApiBehaviorOptions(options =>

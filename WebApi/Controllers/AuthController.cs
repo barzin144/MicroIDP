@@ -31,6 +31,7 @@ namespace WebApi.Controllers
 		private readonly ISecurityService _securityService;
 		private readonly IJwtTokenService _jwtTokenService;
 		private readonly IEmailService _emailService;
+		private readonly ITurnstileService _turnstileService;
 
 		public AuthController(
 			IOptions<OAuthOptions> oAuthOptions,
@@ -40,6 +41,7 @@ namespace WebApi.Controllers
 			IUserService userService,
 			ISecurityService securityService,
 			IJwtTokenService jwtTokenService,
+			ITurnstileService turnstileService,
 			IEmailService emailService)
 		{
 			_oAuthOptions = oAuthOptions.Value;
@@ -50,11 +52,22 @@ namespace WebApi.Controllers
 			_securityService = securityService;
 			_jwtTokenService = jwtTokenService;
 			_emailService = emailService;
+			_turnstileService = turnstileService;
 		}
 
 		[HttpPost("login")]
 		public async Task<ActionResult<ApiResponseViewModel<AuthResponseViewModel>>> Login(LoginUserViewModel loginUser)
 		{
+			var turnstileServiceResult = await _turnstileService.Verify(loginUser.TurnstileToken);
+			if (turnstileServiceResult == false)
+			{
+				return BadRequest(
+				new ApiResponseViewModel
+				{
+					Success = false,
+					Message = "captcha_verify_failed"
+				});
+			}
 			User user = await _userService.FindUserByLoginAsync(loginUser.Email, Provider.Password, loginUser.Password);
 
 			if (user == null)
@@ -63,7 +76,7 @@ namespace WebApi.Controllers
 					new ApiResponseViewModel
 					{
 						Success = false,
-						Message = "User not found."
+						Message = "user_not_found"
 					});
 			}
 			if (user.IsActive == false)
@@ -72,7 +85,7 @@ namespace WebApi.Controllers
 					new ApiResponseViewModel
 					{
 						Success = false,
-						Message = "User account is inactive."
+						Message = "inactive_user"
 					});
 			}
 			if (user.IsEmailVerified == false)
@@ -81,7 +94,7 @@ namespace WebApi.Controllers
 					new ApiResponseViewModel
 					{
 						Success = false,
-						Message = "Email address is not verified."
+						Message = "email_not_verified"
 					});
 			}
 
@@ -112,60 +125,94 @@ namespace WebApi.Controllers
 		[HttpGet("verify-email")]
 		public async Task<ActionResult<ApiResponseViewModel>> VerifyEmail(string token)
 		{
-			var emailVerificationCode = JsonSerializer.Deserialize<EmailVerificationCode>(_dataProtector.Unprotect(Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token))));
-			if (emailVerificationCode == null || emailVerificationCode.ExpiredAt < DateTime.UtcNow)
+			try
 			{
-				return BadRequest(new ApiResponseViewModel { Success = false, Message = "Invalid or expired verification code." });
-			}
+				var emailVerificationCode = JsonSerializer.Deserialize<EmailVerificationCode>(_dataProtector.Unprotect(Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token))));
+				if (emailVerificationCode == null || emailVerificationCode.ExpiredAt < DateTime.UtcNow)
+				{
+					return BadRequest(new ApiResponseViewModel { Success = false, Message = "invalid_or_expired_code" });
+				}
 
-			var user = await _userService.FindUserByEmailAsync(emailVerificationCode.Email);
-			if (user == null)
+				var user = await _userService.FindUserByEmailAsync(emailVerificationCode.Email);
+				if (user == null)
+				{
+					return NotFound(new ApiResponseViewModel { Success = false, Message = "user_not_found" });
+				}
+
+				if (user.IsEmailVerified)
+				{
+					return BadRequest(new ApiResponseViewModel { Success = false, Message = "email_already_verified" });
+				}
+
+				await _userService.SetEmailVerifiedAsync(user.Id);
+
+				return Ok(new ApiResponseViewModel { Success = true, Message = "email_verified_successfully" });
+			}
+			catch
 			{
-				return NotFound(new ApiResponseViewModel { Success = false, Message = "User not found." });
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "invalid_or_expired_code" });
 			}
-
-			if (user.IsEmailVerified)
-			{
-				return BadRequest(new ApiResponseViewModel { Success = false, Message = "Email already verified." });
-			}
-
-			await _userService.SetEmailVerifiedAsync(user.Id);
-
-			return Ok(new ApiResponseViewModel { Success = true, Message = "Email verified successfully." });
 		}
 
 		[HttpPost("reset-password")]
 		public async Task<ActionResult<ApiResponseViewModel>> ResetPassword(ResetPasswordViewModel model)
 		{
-			var resetPasswordCode = JsonSerializer.Deserialize<ResetPasswordCode>(_dataProtector.Unprotect(Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(model.Token))));
-			if (resetPasswordCode == null || resetPasswordCode.ExpiredAt < DateTime.UtcNow)
+			var turnstileServiceResult = await _turnstileService.Verify(model.TurnstileToken);
+			if (turnstileServiceResult == false)
 			{
-				return BadRequest(new ApiResponseViewModel { Success = false, Message = "Invalid or expired reset password code." });
+				return BadRequest(
+				new ApiResponseViewModel
+				{
+					Success = false,
+					Message = "captcha_verify_failed"
+				});
 			}
-
-			var user = await _userService.FindUserByEmailAsync(resetPasswordCode.Email);
-			if (user == null)
+			try
 			{
-				return NotFound(new ApiResponseViewModel { Success = false, Message = "User not found." });
+				var resetPasswordCode = JsonSerializer.Deserialize<ResetPasswordCode>(_dataProtector.Unprotect(Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(model.Token))));
+				if (resetPasswordCode == null || resetPasswordCode.ExpiredAt < DateTime.UtcNow)
+				{
+					return BadRequest(new ApiResponseViewModel { Success = false, Message = "invalid_or_expired_code" });
+				}
+
+				var user = await _userService.FindUserByEmailAsync(resetPasswordCode.Email);
+				if (user == null)
+				{
+					return NotFound(new ApiResponseViewModel { Success = false, Message = "user_not_found" });
+				}
+
+				await _userService.ChangePasswordAsync(user.Id, model.NewPassword);
+
+				return Ok(new ApiResponseViewModel { Success = true, Message = "password_reset_successfully" });
 			}
-
-			await _userService.ChangePasswordAsync(user.Id, model.NewPassword);
-
-			return Ok(new ApiResponseViewModel { Success = true, Message = "Password reset successfully." });
+			catch
+			{
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "invalid_or_expired_code" });
+			}
 		}
 
 		[HttpPost("resend-verification-email")]
 		public async Task<ActionResult<ApiResponseViewModel>> ResendVerificationEmail(EmailViewModel model)
 		{
+			var turnstileServiceResult = await _turnstileService.Verify(model.TurnstileToken);
+			if (turnstileServiceResult == false)
+			{
+				return BadRequest(
+				new ApiResponseViewModel
+				{
+					Success = false,
+					Message = "captcha_verify_failed"
+				});
+			}
 			var user = await _userService.FindUserByEmailAsync(model.Email);
 			if (user == null)
 			{
-				return Ok(new ApiResponseViewModel { Success = true, Message = "Verification email sent successfully." });
+				return Ok(new ApiResponseViewModel { Success = true, Message = "verification_email_sent_successfully" });
 			}
 
 			if (user.IsEmailVerified)
 			{
-				return Ok(new ApiResponseViewModel { Success = true, Message = "Verification email sent successfully." });
+				return Ok(new ApiResponseViewModel { Success = true, Message = "verification_email_sent_successfully" });
 			}
 			var emailVerificationCode = new EmailVerificationCode
 			{
@@ -178,16 +225,26 @@ namespace WebApi.Controllers
 
 			_ = Task.Run(() => _emailService.SendVerificationEmailAsync(user.Email, token));
 
-			return Ok(new ApiResponseViewModel { Success = true, Message = "Verification email sent successfully." });
+			return Ok(new ApiResponseViewModel { Success = true, Message = "verification_email_sent_successfully" });
 		}
 
 		[HttpPost("forgot-password")]
 		public async Task<ActionResult<ApiResponseViewModel>> ForgotPassword(EmailViewModel model)
 		{
+			var turnstileServiceResult = await _turnstileService.Verify(model.TurnstileToken);
+			if (turnstileServiceResult == false)
+			{
+				return BadRequest(
+				new ApiResponseViewModel
+				{
+					Success = false,
+					Message = "captcha_verify_failed"
+				});
+			}
 			var user = await _userService.FindUserByEmailAsync(model.Email);
 			if (user == null)
 			{
-				return Ok(new ApiResponseViewModel { Success = true, Message = "Reset password email sent successfully." });
+				return Ok(new ApiResponseViewModel { Success = true, Message = "reset_password_email_sent_successfully" });
 			}
 
 			var resetPasswordCode = new ResetPasswordCode
@@ -201,12 +258,22 @@ namespace WebApi.Controllers
 
 			_ = Task.Run(() => _emailService.SendResetPasswordEmailAsync(user.Email, token));
 
-			return Ok(new ApiResponseViewModel { Success = true, Message = "Reset password email sent successfully." });
+			return Ok(new ApiResponseViewModel { Success = true, Message = "reset_password_email_sent_successfully" });
 		}
 
 		[HttpPost("register")]
 		public async Task<ActionResult<ApiResponseViewModel<AuthResponseViewModel>>> Register(RegisterUserViewModel registerUser)
 		{
+			var turnstileServiceResult = await _turnstileService.Verify(registerUser.TurnstileToken);
+			if (turnstileServiceResult == false)
+			{
+				return BadRequest(
+				new ApiResponseViewModel
+				{
+					Success = false,
+					Message = "captcha_verify_failed"
+				});
+			}
 			if (await _userService.FindUserByEmailAsync(registerUser.Email) == null)
 			{
 				User newUser = new User
@@ -249,7 +316,7 @@ namespace WebApi.Controllers
 			}
 			else
 			{
-				return BadRequest(new ApiResponseViewModel { Success = false, Message = "A user with this email already exists." });
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "email_already_exists" });
 			}
 		}
 
@@ -257,11 +324,6 @@ namespace WebApi.Controllers
 		[HttpPost("change-password")]
 		public async Task<ActionResult<ApiResponseViewModel>> ChangePassword(ChangePasswordViewModel model)
 		{
-			if (!ModelState.IsValid)
-			{
-				return BadRequest(ModelState);
-			}
-
 			User user = await _userService.GetCurrentUserDataAsync();
 
 			if (user.ProviderKey != _securityService.GetSha256Hash(model.OldPassword))
@@ -269,7 +331,7 @@ namespace WebApi.Controllers
 				return BadRequest(new ApiResponseViewModel
 				{
 					Success = false,
-					Message = "Incorrect old password."
+					Message = "incorrect_old_password"
 				});
 			}
 
@@ -278,7 +340,7 @@ namespace WebApi.Controllers
 				return Ok(new ApiResponseViewModel
 				{
 					Success = true,
-					Message = "Password changed successfully."
+					Message = "password_changed_successfully"
 				});
 			}
 
@@ -286,7 +348,7 @@ namespace WebApi.Controllers
 				new ApiResponseViewModel
 				{
 					Success = false,
-					Message = "Failed to change password."
+					Message = "failed_to_change_password"
 				});
 		}
 
@@ -312,7 +374,7 @@ namespace WebApi.Controllers
 				{
 					Success = false,
 					Message =
-				 "Google authentication failed."
+				 "google_authentication_failed."
 				});
 			}
 
@@ -348,7 +410,7 @@ namespace WebApi.Controllers
 
 			if (user.IsActive == false)
 			{
-				return Unauthorized(new ApiResponseViewModel { Success = false, Message = "User account is inactive." });
+				return Unauthorized(new ApiResponseViewModel { Success = false, Message = "inactive_user" });
 			}
 
 			JwtTokensData jwtToken = _jwtTokenService.CreateJwtTokens(user);
@@ -382,12 +444,12 @@ namespace WebApi.Controllers
 			AuthCookie? authResponse = ReadCookie(Request);
 			if (authResponse == null)
 			{
-				return BadRequest(new ApiResponseViewModel { Success = false, Message = "No authentication cookie found." });
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "cookie_not_found." });
 			}
 			string refreshToken = authResponse.RefreshToken;
 			if (string.IsNullOrWhiteSpace(refreshToken))
 			{
-				return BadRequest(new ApiResponseViewModel { Success = false, Message = "Refresh token is not set." });
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "refresh_token_not_found" });
 			}
 
 			try
@@ -395,7 +457,7 @@ namespace WebApi.Controllers
 				(Token token, User user) = await _jwtTokenService.FindUserAndTokenByRefreshTokenAsync(refreshToken);
 				if (token == null)
 				{
-					return BadRequest(new ApiResponseViewModel { Success = false, Message = "Invalid refresh token." });
+					return BadRequest(new ApiResponseViewModel { Success = false, Message = "invalid_refresh_token." });
 				}
 
 				var result = _jwtTokenService.CreateJwtTokens(user);
@@ -422,7 +484,7 @@ namespace WebApi.Controllers
 			}
 			catch
 			{
-				return BadRequest(new ApiResponseViewModel { Success = false, Message = "Invalid refresh token." });
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "invalid_refresh_token." });
 			}
 		}
 
@@ -432,7 +494,7 @@ namespace WebApi.Controllers
 			AuthCookie? authResponse = ReadCookie(Request);
 			if (authResponse == null)
 			{
-				return Ok(new ApiResponseViewModel { Success = true, Message = "You have logged out successfully." });
+				return Ok(new ApiResponseViewModel { Success = true, Message = "logged_out_successfully." });
 			}
 			string refreshToken = authResponse.RefreshToken;
 			(Token token, User user) = await _jwtTokenService.FindUserAndTokenByRefreshTokenAsync(refreshToken);
@@ -443,7 +505,7 @@ namespace WebApi.Controllers
 			}
 
 			Response.Cookies.Delete(_jwtOptions.CookieName);
-			return Ok(new ApiResponseViewModel { Success = true, Message = "You have logged out successfully." });
+			return Ok(new ApiResponseViewModel { Success = true, Message = "logged_out_successfully." });
 		}
 
 		private void AppendCookie(HttpResponse response, AuthCookie authCookie)
