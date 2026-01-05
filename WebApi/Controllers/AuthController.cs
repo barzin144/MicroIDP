@@ -403,6 +403,7 @@ namespace WebApi.Controllers
 					Provider = Provider.Google,
 					IsActive = true,
 					Roles = [new Role { Name = "User" }],
+					IsEmailVerified = true,
 					SerialNumber = _securityService.CreateCryptographicallySecureGuid().ToString().Replace("-", "")
 				};
 				await _userService.AddUserAsync(user);
