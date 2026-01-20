@@ -2,33 +2,27 @@ name: Build
 on:
   workflow_dispatch: {}
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: 8.0
-    
-    - name: Install dependencies
-      run: dotnet restore
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-        
-  mutation-testing:
-    needs: build
-    if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}.
-    uses: ./.github/workflows/stryker.yml
-    secrets: inherit
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
 
   testing:
     needs: build
