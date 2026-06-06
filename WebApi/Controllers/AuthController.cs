@@ -247,6 +247,11 @@ namespace WebApi.Controllers
 				return Ok(new ApiResponseViewModel { Success = true, Message = "reset_password_email_sent_successfully" });
 			}
 
+			if (user.Provider != Provider.Password)
+			{
+				return BadRequest(new ApiResponseViewModel { Success = false, Message = "password_reset_not_allowed_for_oauth_users" });
+			}
+
 			var resetPasswordCode = new ResetPasswordCode
 			{
 				Email = user.Email,
@@ -360,6 +365,7 @@ namespace WebApi.Controllers
 			{
 				RedirectUri = _oAuthOptions.GoogleCallbackURL
 			};
+			properties.Parameters.Add("prompt", "consent");
 			return Challenge(properties, GoogleDefaults.AuthenticationScheme);
 		}
 
@@ -373,10 +379,11 @@ namespace WebApi.Controllers
 				return BadRequest(new ApiResponseViewModel
 				{
 					Success = false,
-					Message =
-				 "google_authentication_failed."
+					Message = "google_authentication_failed."
 				});
 			}
+
+			var refreshToken = authenticateResult.Properties.GetTokenValue("refresh_token");
 
 			var claims = authenticateResult.Principal.Claims;
 
@@ -401,6 +408,7 @@ namespace WebApi.Controllers
 					Email = email,
 					ProviderKey = _securityService.GetSha256Hash(nameIdentifier),
 					Provider = Provider.Google,
+					ProviderRefreshToken = refreshToken,
 					IsActive = true,
 					Roles = [new Role { Name = "User" }],
 					IsEmailVerified = true,

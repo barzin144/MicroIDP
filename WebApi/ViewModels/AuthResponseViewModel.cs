@@ -1,4 +1,4 @@
-namespace WebApi.ViewModels;
+﻿namespace WebApi.ViewModels;
 
 public class AuthResponseViewModel
 {

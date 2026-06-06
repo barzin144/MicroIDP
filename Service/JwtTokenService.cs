@@ -71,7 +71,9 @@ namespace Service
 			new Claim(ClaimTypes.Name, user.Name, ClaimValueTypes.String, jwtIssuer),
 			new Claim(ClaimTypes.Email, user.Email, ClaimValueTypes.String, jwtIssuer),
 			new Claim(ClaimTypes.SerialNumber, user.SerialNumber, ClaimValueTypes.String, jwtIssuer),
-			new Claim(ClaimTypes.UserData, user.Id.ToString(), ClaimValueTypes.String, jwtIssuer)
+			new Claim(ClaimTypes.UserData, user.Id.ToString(), ClaimValueTypes.String, jwtIssuer),
+			new Claim("ProviderKey", user.ProviderKey, ClaimValueTypes.String, jwtIssuer),
+			new Claim("ProviderRefreshToken", user.ProviderRefreshToken, ClaimValueTypes.String, jwtIssuer)
 			];
 
 			foreach (Role role in user.Roles)

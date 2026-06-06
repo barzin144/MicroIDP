@@ -1,4 +1,4 @@
-using IoCConfig;
+﻿using IoCConfig;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
