@@ -1,9 +1,4 @@
-﻿using Domain.Entities;
-using Domain.Models;
-using Domain.Services;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
@@ -11,6 +6,12 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Domain.Entities;
+using Domain.Enums;
+using Domain.Models;
+using Domain.Services;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Service
 {
@@ -21,7 +22,11 @@ namespace Service
 		private readonly JwtOptions _jwtOptions;
 		private readonly RSA _rsa;
 
-		public JwtTokenService(IUserService userService, ISecurityService securityService, IOptions<JwtOptions> jwtOptions)
+		public JwtTokenService(
+			IUserService userService,
+			ISecurityService securityService,
+			IOptions<JwtOptions> jwtOptions
+		)
 		{
 			_userService = userService;
 			_securityService = securityService;
@@ -30,19 +35,29 @@ namespace Service
 			_rsa.ImportRSAPrivateKey(Convert.FromBase64String(_jwtOptions.PrivateKey), out _);
 		}
 
-		public async Task AddUserTokenAsync(User user, string refreshTokenSerial, string accessToken, string refreshTokenSourceSerial)
+		public async Task AddUserTokenAsync(
+			User user,
+			string refreshTokenSerial,
+			string accessToken,
+			string refreshTokenSourceSerial
+		)
 		{
 			var now = DateTimeOffset.UtcNow;
 			var token = new Token
 			{
 				RefreshTokenIdHash = _securityService.GetSha256Hash(refreshTokenSerial),
-				RefreshTokenIdHashSource = string.IsNullOrWhiteSpace(refreshTokenSourceSerial) ? null : _securityService.GetSha256Hash(refreshTokenSourceSerial),
+				RefreshTokenIdHashSource = string.IsNullOrWhiteSpace(refreshTokenSourceSerial)
+					? null
+					: _securityService.GetSha256Hash(refreshTokenSourceSerial),
 				AccessTokenHash = _securityService.GetSha256Hash(accessToken),
 				RefreshTokenExpiresDateTime = now.AddMinutes(_jwtOptions.RefreshTokenExpirationMinutes),
-				AccessTokenExpiresDateTime = now.AddMinutes(_jwtOptions.AccessTokenExpirationMinutes)
+				AccessTokenExpiresDateTime = now.AddMinutes(_jwtOptions.AccessTokenExpirationMinutes),
 			};
 
-			await _userService.DeleteTokensWithSameRefreshTokenSourceAsync(token.RefreshTokenIdHashSource, user.Id);
+			await _userService.DeleteTokensWithSameRefreshTokenSourceAsync(
+				token.RefreshTokenIdHashSource,
+				user.Id
+			);
 			await AddUserTokenAsync(token, user.Id);
 		}
 
@@ -55,7 +70,7 @@ namespace Service
 				AccessToken = accessToken,
 				Claims = claims,
 				RefreshToken = refreshTokenValue,
-				RefreshTokenSerial = refreshTokenSerial
+				RefreshTokenSerial = refreshTokenSerial,
 			};
 		}
 
@@ -63,17 +78,38 @@ namespace Service
 		{
 			string jwtIssuer = _jwtOptions.Issuer;
 
-			List<Claim> claims = [
-			new Claim(JwtRegisteredClaimNames.Jti, _securityService.CreateCryptographicallySecureGuid().ToString(), ClaimValueTypes.String, jwtIssuer),
-			new Claim(JwtRegisteredClaimNames.Iss, jwtIssuer, ClaimValueTypes.String, jwtIssuer),
-			new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64, jwtIssuer),
-			new Claim(ClaimTypes.NameIdentifier, user.Id.ToString(), ClaimValueTypes.String, jwtIssuer),
-			new Claim(ClaimTypes.Name, user.Name, ClaimValueTypes.String, jwtIssuer),
-			new Claim(ClaimTypes.Email, user.Email, ClaimValueTypes.String, jwtIssuer),
-			new Claim(ClaimTypes.SerialNumber, user.SerialNumber, ClaimValueTypes.String, jwtIssuer),
-			new Claim(ClaimTypes.UserData, user.Id.ToString(), ClaimValueTypes.String, jwtIssuer),
-			new Claim("ProviderKey", user.ProviderKey, ClaimValueTypes.String, jwtIssuer),
-			new Claim("ProviderRefreshToken", user.ProviderRefreshToken, ClaimValueTypes.String, jwtIssuer)
+			List<Claim> claims =
+			[
+				new Claim(
+					JwtRegisteredClaimNames.Jti,
+					_securityService.CreateCryptographicallySecureGuid().ToString(),
+					ClaimValueTypes.String,
+					jwtIssuer
+				),
+				new Claim(JwtRegisteredClaimNames.Iss, jwtIssuer, ClaimValueTypes.String, jwtIssuer),
+				new Claim(
+					JwtRegisteredClaimNames.Iat,
+					DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
+					ClaimValueTypes.Integer64,
+					jwtIssuer
+				),
+				new Claim(ClaimTypes.NameIdentifier, user.Id.ToString(), ClaimValueTypes.String, jwtIssuer),
+				new Claim(ClaimTypes.Name, user.Name, ClaimValueTypes.String, jwtIssuer),
+				new Claim(ClaimTypes.Email, user.Email, ClaimValueTypes.String, jwtIssuer),
+				new Claim(ClaimTypes.SerialNumber, user.SerialNumber, ClaimValueTypes.String, jwtIssuer),
+				new Claim(ClaimTypes.UserData, user.Id.ToString(), ClaimValueTypes.String, jwtIssuer),
+				new Claim(
+					"ProviderKey",
+					user.Provider == Provider.Google ? user.ProviderKey : string.Empty,
+					ClaimValueTypes.String,
+					jwtIssuer
+				),
+				new Claim(
+					"ProviderRefreshToken",
+					user.ProviderRefreshToken,
+					ClaimValueTypes.String,
+					jwtIssuer
+				),
 			];
 
 			foreach (Role role in user.Roles)
@@ -81,7 +117,10 @@ namespace Service
 				claims.Add(new Claim(ClaimTypes.Role, role.Name, ClaimValueTypes.String, jwtIssuer));
 			}
 
-			SigningCredentials credentials = new SigningCredentials(new RsaSecurityKey(_rsa), SecurityAlgorithms.RsaSha256);
+			SigningCredentials credentials = new SigningCredentials(
+				new RsaSecurityKey(_rsa),
+				SecurityAlgorithms.RsaSha256
+			);
 
 			DateTime now = DateTime.UtcNow;
 
@@ -101,25 +140,42 @@ namespace Service
 		{
 			string jwtIssuer = _jwtOptions.Issuer;
 
-			string refreshTokenSerial = _securityService.CreateCryptographicallySecureGuid().ToString().Replace("-", "");
+			string refreshTokenSerial = _securityService
+				.CreateCryptographicallySecureGuid()
+				.ToString()
+				.Replace("-", "");
 
 			List<Claim> claims = new List<Claim>
-						{
-								new Claim(JwtRegisteredClaimNames.Jti, _securityService.CreateCryptographicallySecureGuid().ToString(), ClaimValueTypes.String, jwtIssuer),
-								new Claim(JwtRegisteredClaimNames.Iss, jwtIssuer, ClaimValueTypes.String, jwtIssuer),
-								new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64, jwtIssuer),
-								new Claim(ClaimTypes.SerialNumber, refreshTokenSerial, ClaimValueTypes.String, jwtIssuer)
-						};
-			SigningCredentials credentials = new SigningCredentials(new RsaSecurityKey(_rsa), SecurityAlgorithms.RsaSha256);
+			{
+				new Claim(
+					JwtRegisteredClaimNames.Jti,
+					_securityService.CreateCryptographicallySecureGuid().ToString(),
+					ClaimValueTypes.String,
+					jwtIssuer
+				),
+				new Claim(JwtRegisteredClaimNames.Iss, jwtIssuer, ClaimValueTypes.String, jwtIssuer),
+				new Claim(
+					JwtRegisteredClaimNames.Iat,
+					DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
+					ClaimValueTypes.Integer64,
+					jwtIssuer
+				),
+				new Claim(ClaimTypes.SerialNumber, refreshTokenSerial, ClaimValueTypes.String, jwtIssuer),
+			};
+			SigningCredentials credentials = new SigningCredentials(
+				new RsaSecurityKey(_rsa),
+				SecurityAlgorithms.RsaSha256
+			);
 
 			DateTime now = DateTime.UtcNow;
 			JwtSecurityToken token = new JwtSecurityToken(
-					issuer: jwtIssuer,
-					audience: _jwtOptions.Audience,
-					claims: claims,
-					notBefore: now,
-					expires: now.AddMinutes(_jwtOptions.RefreshTokenExpirationMinutes),
-					signingCredentials: credentials);
+				issuer: jwtIssuer,
+				audience: _jwtOptions.Audience,
+				claims: claims,
+				notBefore: now,
+				expires: now.AddMinutes(_jwtOptions.RefreshTokenExpirationMinutes),
+				signingCredentials: credentials
+			);
 			string refreshTokenValue = new JwtSecurityTokenHandler().WriteToken(token);
 
 			return (refreshTokenValue, refreshTokenSerial);
@@ -151,18 +207,18 @@ namespace Service
 			try
 			{
 				decodedRefreshTokenPrincipal = new JwtSecurityTokenHandler().ValidateToken(
-						refreshTokenValue,
-						new TokenValidationParameters
-						{
-							RequireExpirationTime = true,
-							ValidateIssuer = false,
-							ValidateAudience = false,
-							IssuerSigningKey = new RsaSecurityKey(_rsa),
-							ValidateIssuerSigningKey = true,
-							ValidateLifetime = true,
-							ClockSkew = TimeSpan.Zero
-						},
-						out _
+					refreshTokenValue,
+					new TokenValidationParameters
+					{
+						RequireExpirationTime = true,
+						ValidateIssuer = false,
+						ValidateAudience = false,
+						IssuerSigningKey = new RsaSecurityKey(_rsa),
+						ValidateIssuerSigningKey = true,
+						ValidateLifetime = true,
+						ClockSkew = TimeSpan.Zero,
+					},
+					out _
 				);
 			}
 			catch
@@ -170,7 +226,9 @@ namespace Service
 				throw;
 			}
 
-			return decodedRefreshTokenPrincipal?.Claims?.FirstOrDefault(c => c.Type == ClaimTypes.SerialNumber)?.Value;
+			return decodedRefreshTokenPrincipal
+				?.Claims?.FirstOrDefault(c => c.Type == ClaimTypes.SerialNumber)
+				?.Value;
 		}
 
 		public async Task<bool> DeleteExpiredTokensAsync(string userId)
@@ -194,14 +252,19 @@ namespace Service
 				if (!string.IsNullOrWhiteSpace(refreshTokenSerial))
 				{
 					var refreshTokenIdHashSource = _securityService.GetSha256Hash(refreshTokenSerial);
-					await _userService.DeleteTokensWithSameRefreshTokenSourceAsync(refreshTokenIdHashSource, userId);
+					await _userService.DeleteTokensWithSameRefreshTokenSourceAsync(
+						refreshTokenIdHashSource,
+						userId
+					);
 				}
 			}
 
 			await DeleteExpiredTokensAsync(userId);
 		}
 
-		public async Task<(Token token, User user)> FindUserAndTokenByRefreshTokenAsync(string refreshToken)
+		public async Task<(Token token, User user)> FindUserAndTokenByRefreshTokenAsync(
+			string refreshToken
+		)
 		{
 			if (string.IsNullOrWhiteSpace(refreshToken))
 			{
