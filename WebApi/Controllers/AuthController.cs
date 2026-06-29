@@ -198,6 +198,17 @@ namespace WebApi.Controllers
 					return NotFound(new ApiResponseViewModel { Success = false, Message = "user_not_found" });
 				}
 
+				if (user.Provider != Provider.Password)
+				{
+					return BadRequest(
+						new ApiResponseViewModel
+						{
+							Success = false,
+							Message = "password_reset_not_allowed_for_oauth_users",
+						}
+					);
+				}
+
 				await _userService.ChangePasswordAsync(user.Id, model.NewPassword);
 
 				return Ok(
@@ -396,6 +407,17 @@ namespace WebApi.Controllers
 		{
 			User user = await _userService.GetCurrentUserDataAsync();
 
+			if (user.Provider != Provider.Password)
+			{
+				return BadRequest(
+					new ApiResponseViewModel
+					{
+						Success = false,
+						Message = "change_password_not_allowed_for_oauth_users",
+					}
+				);
+			}
+
 			if (user.ProviderKey != _securityService.GetSha256Hash(model.OldPassword))
 			{
 				return BadRequest(
@@ -491,7 +513,7 @@ namespace WebApi.Controllers
 				{
 					Name = name,
 					Email = email,
-					ProviderKey = _securityService.GetSha256Hash(nameIdentifier),
+					ProviderNameIdentifier = nameIdentifier,
 					Provider = Provider.Google,
 					ProviderRefreshToken = refreshToken,
 					IsActive = true,
