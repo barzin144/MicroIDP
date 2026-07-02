@@ -474,6 +474,18 @@ namespace WebApi.Controllers
 			return Challenge(properties, GoogleDefaults.AuthenticationScheme);
 		}
 
+		[HttpGet("google-connect")]
+		[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+		public IActionResult GoogleConnect()
+		{
+			var properties = new AuthenticationProperties
+			{
+				RedirectUri = _oAuthOptions.GoogleConnectCallbackURL,
+			};
+			properties.Parameters.Add("prompt", "consent");
+			return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+		}
+
 		[HttpGet("google-callback")]
 		public async Task<
 			ActionResult<ApiResponseViewModel<AuthResponseViewModel>>
@@ -501,11 +513,10 @@ namespace WebApi.Controllers
 			ArgumentNullException.ThrowIfNull(name, nameof(name));
 
 			var nameIdentifier = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-			ArgumentNullException.ThrowIfNull(nameIdentifier, nameof(nameIdentifier));
 
 			var profilePicture = claims.FirstOrDefault(c => c.Type == ClaimTypes.Uri)?.Value;
 
-			var user = await _userService.FindUserByLoginAsync(email, Provider.Google, nameIdentifier);
+			var user = await _userService.FindUserByLoginAsync(email, Provider.Google);
 
 			if (user == null)
 			{
@@ -533,6 +544,72 @@ namespace WebApi.Controllers
 					new ApiResponseViewModel { Success = false, Message = "inactive_user" }
 				);
 			}
+
+			JwtTokensData jwtToken = _jwtTokenService.CreateJwtTokens(user);
+
+			await _jwtTokenService.AddUserTokenAsync(
+				user,
+				jwtToken.RefreshTokenSerial,
+				jwtToken.AccessToken,
+				null
+			);
+
+			AppendCookie(
+				Response,
+				new AuthCookie { AccessToken = jwtToken.AccessToken, RefreshToken = jwtToken.RefreshToken }
+			);
+
+			return Ok(
+				new ApiResponseViewModel<AuthResponseViewModel>
+				{
+					Success = true,
+					Data = new AuthResponseViewModel
+					{
+						Email = user.Email,
+						Name = user.Name,
+						ProfilePicture = profilePicture,
+						Provider = user.Provider.ToString(),
+						IsEmailVerified = user.IsEmailVerified,
+					},
+				}
+			);
+		}
+
+		[HttpGet("google-connect-callback")]
+		[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+		public async Task<
+			ActionResult<ApiResponseViewModel<AuthResponseViewModel>>
+		> GoogleConnectCallbackAsync()
+		{
+			var authenticateResult = await HttpContext.AuthenticateAsync(
+				CookieAuthenticationDefaults.AuthenticationScheme
+			);
+
+			if (!authenticateResult.Succeeded)
+			{
+				return BadRequest(
+					new ApiResponseViewModel { Success = false, Message = "google_authentication_failed." }
+				);
+			}
+
+			User user = await _userService.GetCurrentUserDataAsync();
+
+			if (user is null)
+			{
+				return NotFound(new ApiResponseViewModel { Success = false, Message = "user_not_found" });
+			}
+
+			var refreshToken = authenticateResult.Properties.GetTokenValue("refresh_token");
+
+			var claims = authenticateResult.Principal.Claims;
+
+			var nameIdentifier = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+			var profilePicture = claims.FirstOrDefault(c => c.Type == ClaimTypes.Uri)?.Value;
+
+			user.ProviderRefreshToken = refreshToken;
+			user.ProviderNameIdentifier = nameIdentifier;
+
+			await _userService.SetProviderPropertiesAsync(user.Id, nameIdentifier, refreshToken);
 
 			JwtTokensData jwtToken = _jwtTokenService.CreateJwtTokens(user);
 
