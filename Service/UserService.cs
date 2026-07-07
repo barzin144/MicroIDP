@@ -113,13 +113,11 @@ namespace Service
 
 		public Task<bool> SetProviderPropertiesAsync(
 			string userId,
-			string providerNameIdentifier,
 			string providerRefreshToken
 		)
 		{
 			return _userRepository.SetProviderPropertiesAsync(
 				userId,
-				providerNameIdentifier,
 				providerRefreshToken
 			);
 		}

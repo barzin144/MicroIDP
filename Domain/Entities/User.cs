@@ -16,7 +16,6 @@ namespace Domain.Entities
 		public required Provider Provider { get; set; }
 		public string ProviderKey { get; set; } = string.Empty;
 		public string ProviderRefreshToken { get; set; } = string.Empty;
-		public string ProviderNameIdentifier { get; set; } = string.Empty;
 		public required string Name { get; set; }
 		public bool IsActive { get; set; }
 		public bool IsEmailVerified { get; set; } = false;

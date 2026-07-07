@@ -192,7 +192,6 @@ namespace DataAccess
 
 		public async Task<bool> SetProviderPropertiesAsync(
 			string userId,
-			string providerNameIdentifier,
 			string providerRefreshToken
 		)
 		{
@@ -200,7 +199,6 @@ namespace DataAccess
 			{
 				FilterDefinition<User> filter = new FilterDefinitionBuilder<User>().Eq(x => x.Id, userId);
 				UpdateDefinition<User> update = new UpdateDefinitionBuilder<User>()
-					.Set(x => x.ProviderNameIdentifier, providerNameIdentifier)
 					.Set(x => x.ProviderRefreshToken, providerRefreshToken);
 
 				await collection.FindOneAndUpdateAsync(filter, update);

@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build-env
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build-env
 WORKDIR /src
 EXPOSE 80
 EXPOSE 443
@@ -19,7 +19,7 @@ RUN dotnet build "WebApi.csproj" -c Release -o /app
 
 RUN dotnet publish "WebApi.csproj" -c Release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 
 WORKDIR "/app"
 

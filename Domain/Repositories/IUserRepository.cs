@@ -20,7 +20,6 @@ namespace Domain.Repositories
 		Task<bool> ChangePasswordAsync(string userId, string newPasswordHash, string newSerialNumber);
 		Task<bool> SetProviderPropertiesAsync(
 			string userId,
-			string providerNameIdentifier,
 			string providerRefreshToken
 		);
 	}

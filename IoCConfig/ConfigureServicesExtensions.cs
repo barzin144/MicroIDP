@@ -15,9 +15,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using MongoDB.Driver;
 using Service;
 
@@ -191,6 +190,12 @@ namespace IoCConfig
 					"v1",
 					new OpenApiInfo { Title = "Micro IDP API Document", Version = "v1" }
 				);
+				var xmlFile = $"{System.Reflection.Assembly.GetEntryAssembly()!.GetName().Name}.xml";
+				var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
+				if (System.IO.File.Exists(xmlPath))
+				{
+					options.IncludeXmlComments(xmlPath);
+				}
 			});
 		}
 
