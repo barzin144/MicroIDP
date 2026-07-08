@@ -42,11 +42,6 @@ namespace Service
 			);
 		}
 
-		public async Task<User> FindUserByLoginAsync(string email, Provider provider)
-		{
-			return await _userRepository.FindUserAsync(s => s.Email == email && s.Provider == provider);
-		}
-
 		public async ValueTask<User> FindUserByIdAsync(string userId)
 		{
 			return await _userRepository.FindByIdAsync(userId);

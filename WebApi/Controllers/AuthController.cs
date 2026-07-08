@@ -593,7 +593,7 @@ namespace WebApi.Controllers
 
 			var profilePicture = claims.FirstOrDefault(c => c.Type == ClaimTypes.Uri)?.Value;
 
-			var user = await _userService.FindUserByLoginAsync(email, Provider.Google);
+			var user = await _userService.FindUserByEmailAsync(email);
 
 			if (user == null)
 			{
