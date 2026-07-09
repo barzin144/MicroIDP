@@ -45,6 +45,8 @@ All endpoints are under `/api/auth`.
 | `GET` | `/verify-email` | — | Verify email with token from link |
 | `GET` | `/google-login` | — | Redirect to Google OAuth consent |
 | `GET` | `/google-callback` | — | Handle Google OAuth callback |
+| `GET` | `/google-connect` | JWT | Connect a Google account to the current user |
+| `GET` | `/google-connect-callback` | JWT | Handle Google OAuth callback for account linking |
 
 ## Prerequisites
 
@@ -176,6 +178,7 @@ EmailTemplate__ApplicationName=MicroIDP
 OAuth__GoogleClientId=<GOOGLE_CLIENT_ID>
 OAuth__GoogleClientSecret=<GOOGLE_CLIENT_SECRET>
 OAuth__GoogleCallbackURL=<CLIENT_APP_GOOGLE_CALLBACK_URL>
+OAuth__GoogleConnectCallbackURL=<CLIENT_APP_GOOGLE_CONNECT_CALLBACK_URL>
 
 # Cloudflare Turnstile
 Turnstile__SecretKey=<TURNSTILE_SECRET_KEY>
@@ -187,9 +190,10 @@ DataProtection__GeneralPurposeKey=<RANDOM_SECRET_STRING>
 ### 5. Configure Google Sign-In
 
 1. Create an OAuth 2.0 client ID in [Google Cloud Console](https://console.cloud.google.com).
-2. Add `https://localhost:8001/api/auth/google-callback` (or your production URL) as an authorised redirect URI.
+2. Add `https://localhost:8001/api/auth/google-callback` and `https://localhost:8001/api/auth/google-connect-callback` (or your production URLs) as authorised redirect URIs.
 3. Set `OAuth__GoogleClientId` and `OAuth__GoogleClientSecret` in `.env`.
-4. Set `OAuth__GoogleCallbackURL` to the page in **your client app** that Google redirects to after consent. That page should then call `GET https://IDP_SERVER_URL/api/auth/google-callback` to receive the JWT cookie.
+4. Set `OAuth__GoogleCallbackURL` to the page in **your client app** that Google redirects to after a login. That page should then call `GET https://IDP_SERVER_URL/api/auth/google-callback` to receive the JWT cookie.
+5. Set `OAuth__GoogleConnectCallbackURL` to the page in **your client app** that Google redirects to after an account-linking flow (`GET /api/auth/google-connect`). That page should call `GET https://IDP_SERVER_URL/api/auth/google-connect-callback`.
 
 ### 6. Start the Service
 
