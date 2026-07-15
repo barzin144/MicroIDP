@@ -35,9 +35,11 @@ public class EmailService : IEmailService
         {
             client.Credentials = new NetworkCredential(_username, _password);
             client.EnableSsl = true;
-            var message = new MailMessage();
-            message.From = new MailAddress("no-reply@z0ne.uk");
-            message.Headers.Add("Message-Id", $"<verify-{Guid.NewGuid()}@z0ne.uk>");
+            var message = new MailMessage
+            {
+                From = new MailAddress($"no-reply@{_templateOptions.EmailDomain}")
+            };
+            message.Headers.Add("Message-Id", $"<verify-{Guid.NewGuid()}@{_templateOptions.EmailDomain}>");
             message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(body, null, "text/html"));
             message.To.Add(new MailAddress(to));
             message.Subject = subject;
