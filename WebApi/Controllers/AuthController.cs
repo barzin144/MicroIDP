@@ -621,6 +621,12 @@ namespace WebApi.Controllers
 				);
 			}
 
+			if (string.IsNullOrEmpty(user.ProviderRefreshToken))
+			{
+				user.ProviderRefreshToken = refreshToken;
+				await _userService.SetProviderPropertiesAsync(user.Id, refreshToken);
+			}
+
 			JwtTokensData jwtToken = _jwtTokenService.CreateJwtTokens(user);
 
 			await _jwtTokenService.AddUserTokenAsync(
