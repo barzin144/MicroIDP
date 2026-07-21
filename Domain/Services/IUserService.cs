@@ -8,6 +8,7 @@ namespace Domain.Services
 	{
 		Task<bool> AddUserAsync(User user);
 		Task<bool> SetEmailVerifiedAsync(string userId);
+		Task<bool> SetProviderPropertiesAsync(string userId, string ProviderRefreshToken);
 		Task<User> FindUserByLoginAsync(string email, Provider provider, string providerKey);
 		Task<User> FindUserByEmailAsync(string email);
 		ValueTask<User> FindUserByIdAsync(string userId);

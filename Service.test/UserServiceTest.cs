@@ -1,4 +1,4 @@
-using Domain.Repositories;
+﻿using Domain.Repositories;
 using System.Linq.Expressions;
 using Domain.Entities;
 using System.Security.Claims;
@@ -24,7 +24,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void FindUserByLoginAsync_ShouldSendCorrectFilter()
+	public async Task FindUserByLoginAsync_ShouldSendCorrectFilter()
 	{
 		//Arrange
 		Provider provider = Provider.Google;
@@ -39,7 +39,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void AddUserAsync_ShouldCallInsertOneAsync()
+	public async Task AddUserAsync_ShouldCallInsertOneAsync()
 	{
 		//Arrange
 		User newUser = new User
@@ -59,7 +59,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void FindUserByIdAsync_ShouldCallFindByIdAsync()
+	public async Task FindUserByIdAsync_ShouldCallFindByIdAsync()
 	{
 		//Arrange
 		string userID = "abc";
@@ -70,7 +70,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void DeleteUserTokensByUserIdAsync_ShouldCallDeleteUserTokensByUserIdAsync()
+	public async Task DeleteUserTokensByUserIdAsync_ShouldCallDeleteUserTokensByUserIdAsync()
 	{
 		//Arrange
 		string userID = "abc";
@@ -81,7 +81,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void AddUserTokenByUserIdAsync_ShouldCallAddUserTokenByUserIdAsync()
+	public async Task AddUserTokenByUserIdAsync_ShouldCallAddUserTokenByUserIdAsync()
 	{
 		//Arrange
 		string userID = "abc";
@@ -96,7 +96,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void DeleteExpiredTokensAsync_ShouldCallDeleteExpiredTokensAsync()
+	public async Task DeleteExpiredTokensAsync_ShouldCallDeleteExpiredTokensAsync()
 	{
 		//Arrange
 		string userID = "abc";
@@ -107,7 +107,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void DeleteTokensWithSameRefreshTokenSourceAsync_ShouldCallDeleteTokensWithSameRefreshTokenSourceAsync()
+	public async Task DeleteTokensWithSameRefreshTokenSourceAsync_ShouldCallDeleteTokensWithSameRefreshTokenSourceAsync()
 	{
 		//Arrange
 		string userID = "abc";
@@ -119,7 +119,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void FindUserAndTokenByRefreshTokenAsync_ShouldCallFindUserAndTokenByRefreshTokenAsync()
+	public async Task FindUserAndTokenByRefreshTokenAsync_ShouldCallFindUserAndTokenByRefreshTokenAsync()
 	{
 		//Arrange
 		string refreshToekn = "abc";
@@ -130,7 +130,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void FindUserByEmailAsync_ShouldCallFindUserByUsernameAsync()
+	public async Task FindUserByEmailAsync_ShouldCallFindUserByUsernameAsync()
 	{
 		//Arrange
 		string email = "abc@g.com";
@@ -141,7 +141,7 @@ public class UserServiceTest
 	}
 
 	[Fact]
-	public async void GetCurrentUserDataAsync_ShouldCallFindByIdAsync()
+	public async Task GetCurrentUserDataAsync_ShouldCallFindByIdAsync()
 	{
 		//Arrange
 		string userId = "abc";

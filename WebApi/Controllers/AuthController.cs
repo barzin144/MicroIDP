@@ -19,6 +19,7 @@ using WebApi.ViewModels;
 
 namespace WebApi.Controllers
 {
+	/// <summary>Handles authentication operations including login, registration, OAuth, and token management.</summary>
 	[Route("api/[controller]")]
 	[ApiController]
 	public class AuthController : ControllerBase
@@ -33,6 +34,7 @@ namespace WebApi.Controllers
 		private readonly IEmailService _emailService;
 		private readonly ITurnstileService _turnstileService;
 
+		/// <summary>Initializes a new instance of <see cref="AuthController"/>.</summary>
 		public AuthController(
 			IOptions<OAuthOptions> oAuthOptions,
 			IOptions<Domain.Models.DataProtectionOptions> dataProtectionOptions,
@@ -58,6 +60,14 @@ namespace WebApi.Controllers
 			_turnstileService = turnstileService;
 		}
 
+		/// <summary>
+		/// Authenticates a user with email and password.
+		/// </summary>
+		/// <param name="loginUser">The user's login credentials including email, password, and Turnstile CAPTCHA token.</param>
+		/// <response code="200">User data and authentication cookies set on success.</response>
+		/// <response code="400">CAPTCHA verification failed.</response>
+		/// <response code="403">Account is inactive or email is not verified.</response>
+		/// <response code="404">No matching user found.</response>
 		[HttpPost("login")]
 		public async Task<ActionResult<ApiResponseViewModel<AuthResponseViewModel>>> Login(
 			LoginUserViewModel loginUser
@@ -124,6 +134,13 @@ namespace WebApi.Controllers
 			);
 		}
 
+		/// <summary>
+		/// Verifies a user's email address using a signed, time-limited token.
+		/// </summary>
+		/// <param name="token">The Base64Url-encoded data-protected email verification token.</param>
+		/// <response code="200">Email verified successfully.</response>
+		/// <response code="400">Token is invalid, expired, or the email is already verified.</response>
+		/// <response code="404">Associated user does not exist.</response>
 		[HttpGet("verify-email")]
 		public async Task<ActionResult<ApiResponseViewModel>> VerifyEmail(string token)
 		{
@@ -166,6 +183,13 @@ namespace WebApi.Controllers
 			}
 		}
 
+		/// <summary>
+		/// Resets a user's password using a signed, time-limited reset token.
+		/// </summary>
+		/// <param name="model">The reset token, new password, confirmation, and Turnstile CAPTCHA token.</param>
+		/// <response code="200">Password reset successfully.</response>
+		/// <response code="400">CAPTCHA failed, token is invalid or expired, or the user is an OAuth user.</response>
+		/// <response code="404">Associated user does not exist.</response>
 		[HttpPost("reset-password")]
 		public async Task<ActionResult<ApiResponseViewModel>> ResetPassword(
 			ResetPasswordViewModel model
@@ -198,6 +222,17 @@ namespace WebApi.Controllers
 					return NotFound(new ApiResponseViewModel { Success = false, Message = "user_not_found" });
 				}
 
+				if (user.Provider != Provider.Password)
+				{
+					return BadRequest(
+						new ApiResponseViewModel
+						{
+							Success = false,
+							Message = "password_reset_not_allowed_for_oauth_users",
+						}
+					);
+				}
+
 				await _userService.ChangePasswordAsync(user.Id, model.NewPassword);
 
 				return Ok(
@@ -212,6 +247,16 @@ namespace WebApi.Controllers
 			}
 		}
 
+		/// <summary>
+		/// Resends the email verification link to the specified address.
+		/// </summary>
+		/// <remarks>
+		/// Always returns 200 OK regardless of whether the email exists, to prevent user enumeration.
+		/// Does nothing if the email is already verified.
+		/// </remarks>
+		/// <param name="model">The target email address and Turnstile CAPTCHA token.</param>
+		/// <response code="200">Verification email sent (or silently skipped to prevent enumeration).</response>
+		/// <response code="400">CAPTCHA verification failed.</response>
 		[HttpPost("resend-verification-email")]
 		public async Task<ActionResult<ApiResponseViewModel>> ResendVerificationEmail(
 			EmailViewModel model
@@ -268,6 +313,16 @@ namespace WebApi.Controllers
 			);
 		}
 
+		/// <summary>
+		/// Sends a password reset link to the specified email address.
+		/// </summary>
+		/// <remarks>
+		/// Always returns 200 OK regardless of whether the email exists, to prevent user enumeration.
+		/// Not available for OAuth users.
+		/// </remarks>
+		/// <param name="model">The target email address and Turnstile CAPTCHA token.</param>
+		/// <response code="200">Reset email sent (or silently skipped to prevent enumeration).</response>
+		/// <response code="400">CAPTCHA failed or the account uses an OAuth provider.</response>
 		[HttpPost("forgot-password")]
 		public async Task<ActionResult<ApiResponseViewModel>> ForgotPassword(EmailViewModel model)
 		{
@@ -323,6 +378,12 @@ namespace WebApi.Controllers
 			);
 		}
 
+		/// <summary>
+		/// Registers a new user with email and password, then sends an email verification link.
+		/// </summary>
+		/// <param name="registerUser">The registration details: name, email, password, confirmation, and Turnstile CAPTCHA token.</param>
+		/// <response code="200">New user profile data returned; verification email sent.</response>
+		/// <response code="400">CAPTCHA failed or the email address is already in use.</response>
 		[HttpPost("register")]
 		public async Task<ActionResult<ApiResponseViewModel<AuthResponseViewModel>>> Register(
 			RegisterUserViewModel registerUser
@@ -388,6 +449,13 @@ namespace WebApi.Controllers
 			}
 		}
 
+		/// <summary>
+		/// Changes the password for the currently authenticated user.
+		/// </summary>
+		/// <remarks>Requires JWT authentication. Not available for OAuth users.</remarks>
+		/// <param name="model">The current password, new password, and confirmation.</param>
+		/// <response code="200">Password changed successfully.</response>
+		/// <response code="400">User is an OAuth user or the old password is incorrect.</response>
 		[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		[HttpPost("change-password")]
 		public async Task<ActionResult<ApiResponseViewModel>> ChangePassword(
@@ -395,6 +463,17 @@ namespace WebApi.Controllers
 		)
 		{
 			User user = await _userService.GetCurrentUserDataAsync();
+
+			if (user.Provider != Provider.Password)
+			{
+				return BadRequest(
+					new ApiResponseViewModel
+					{
+						Success = false,
+						Message = "change_password_not_allowed_for_oauth_users",
+					}
+				);
+			}
 
 			if (user.ProviderKey != _securityService.GetSha256Hash(model.OldPassword))
 			{
@@ -415,6 +494,12 @@ namespace WebApi.Controllers
 			);
 		}
 
+		/// <summary>
+		/// Returns profile data for the currently authenticated user.
+		/// </summary>
+		/// <remarks>Requires JWT authentication.</remarks>
+		/// <response code="200">User profile data.</response>
+		/// <response code="404">User no longer exists.</response>
 		[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		[HttpGet("user")]
 		public async Task<ActionResult<ApiResponseViewModel<AuthResponseViewModel>>> GetUser()
@@ -441,6 +526,10 @@ namespace WebApi.Controllers
 			);
 		}
 
+		/// <summary>
+		/// Initiates the Google OAuth 2.0 login flow.
+		/// </summary>
+		/// <response code="302">Redirects to Google's authorization endpoint.</response>
 		[HttpGet("google-login")]
 		public IActionResult GoogleLogin()
 		{
@@ -452,6 +541,30 @@ namespace WebApi.Controllers
 			return Challenge(properties, GoogleDefaults.AuthenticationScheme);
 		}
 
+		/// <summary>
+		/// Initiates the Google OAuth 2.0 flow to connect a Google account to the currently authenticated user.
+		/// </summary>
+		/// <remarks>Requires JWT authentication.</remarks>
+		/// <response code="302">Redirects to Google's authorization endpoint.</response>
+		[HttpGet("google-connect")]
+		[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+		public IActionResult GoogleConnect()
+		{
+			var properties = new AuthenticationProperties
+			{
+				RedirectUri = _oAuthOptions.GoogleConnectCallbackURL,
+			};
+			properties.Parameters.Add("prompt", "consent");
+			return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+		}
+
+		/// <summary>
+		/// Handles the OAuth 2.0 callback from Google after a login attempt.
+		/// Creates a new user account if one does not already exist for the Google identity.
+		/// </summary>
+		/// <response code="200">User profile data and authentication cookies set on success.</response>
+		/// <response code="400">Google authentication result was unsuccessful.</response>
+		/// <response code="401">Account has been deactivated.</response>
 		[HttpGet("google-callback")]
 		public async Task<
 			ActionResult<ApiResponseViewModel<AuthResponseViewModel>>
@@ -478,12 +591,9 @@ namespace WebApi.Controllers
 			var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
 			ArgumentNullException.ThrowIfNull(name, nameof(name));
 
-			var nameIdentifier = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-			ArgumentNullException.ThrowIfNull(nameIdentifier, nameof(nameIdentifier));
-
 			var profilePicture = claims.FirstOrDefault(c => c.Type == ClaimTypes.Uri)?.Value;
 
-			var user = await _userService.FindUserByLoginAsync(email, Provider.Google, nameIdentifier);
+			var user = await _userService.FindUserByEmailAsync(email);
 
 			if (user == null)
 			{
@@ -491,7 +601,6 @@ namespace WebApi.Controllers
 				{
 					Name = name,
 					Email = email,
-					ProviderKey = _securityService.GetSha256Hash(nameIdentifier),
 					Provider = Provider.Google,
 					ProviderRefreshToken = refreshToken,
 					IsActive = true,
@@ -510,6 +619,12 @@ namespace WebApi.Controllers
 				return Unauthorized(
 					new ApiResponseViewModel { Success = false, Message = "inactive_user" }
 				);
+			}
+
+			if (string.IsNullOrEmpty(user.ProviderRefreshToken))
+			{
+				user.ProviderRefreshToken = refreshToken;
+				await _userService.SetProviderPropertiesAsync(user.Id, refreshToken);
 			}
 
 			JwtTokensData jwtToken = _jwtTokenService.CreateJwtTokens(user);
@@ -542,6 +657,82 @@ namespace WebApi.Controllers
 			);
 		}
 
+		/// <summary>
+		/// Handles the OAuth 2.0 callback from Google after a connect attempt, linking the Google identity to the current account.
+		/// </summary>
+		/// <remarks>Requires JWT authentication.</remarks>
+		/// <response code="200">User profile data and refreshed authentication cookies on success.</response>
+		/// <response code="400">Google authentication result was unsuccessful.</response>
+		/// <response code="404">Authenticated user no longer exists.</response>
+		[HttpGet("google-connect-callback")]
+		[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+		public async Task<
+			ActionResult<ApiResponseViewModel<AuthResponseViewModel>>
+		> GoogleConnectCallbackAsync()
+		{
+			var authenticateResult = await HttpContext.AuthenticateAsync(
+				CookieAuthenticationDefaults.AuthenticationScheme
+			);
+
+			if (!authenticateResult.Succeeded)
+			{
+				return BadRequest(
+					new ApiResponseViewModel { Success = false, Message = "google_authentication_failed." }
+				);
+			}
+
+			User user = await _userService.GetCurrentUserDataAsync();
+
+			if (user is null)
+			{
+				return NotFound(new ApiResponseViewModel { Success = false, Message = "user_not_found" });
+			}
+
+			var refreshToken = authenticateResult.Properties.GetTokenValue("refresh_token");
+
+			var claims = authenticateResult.Principal.Claims;
+
+			var profilePicture = claims.FirstOrDefault(c => c.Type == ClaimTypes.Uri)?.Value;
+
+			user.ProviderRefreshToken = refreshToken;
+
+			await _userService.SetProviderPropertiesAsync(user.Id, refreshToken);
+
+			JwtTokensData jwtToken = _jwtTokenService.CreateJwtTokens(user);
+
+			await _jwtTokenService.AddUserTokenAsync(
+				user,
+				jwtToken.RefreshTokenSerial,
+				jwtToken.AccessToken,
+				null
+			);
+
+			AppendCookie(
+				Response,
+				new AuthCookie { AccessToken = jwtToken.AccessToken, RefreshToken = jwtToken.RefreshToken }
+			);
+
+			return Ok(
+				new ApiResponseViewModel<AuthResponseViewModel>
+				{
+					Success = true,
+					Data = new AuthResponseViewModel
+					{
+						Email = user.Email,
+						Name = user.Name,
+						ProfilePicture = profilePicture,
+						Provider = user.Provider.ToString(),
+						IsEmailVerified = user.IsEmailVerified,
+					},
+				}
+			);
+		}
+
+		/// <summary>
+		/// Issues a new access/refresh token pair using the refresh token from the authentication cookie.
+		/// </summary>
+		/// <response code="200">User profile data and updated authentication cookies on success.</response>
+		/// <response code="400">Cookie is missing, or the refresh token is absent or invalid.</response>
 		[HttpGet("refresh-token")]
 		public async Task<ActionResult<ApiResponseViewModel<AuthResponseViewModel>>> RefreshToken()
 		{
@@ -607,6 +798,10 @@ namespace WebApi.Controllers
 			}
 		}
 
+		/// <summary>
+		/// Revokes the current refresh token and clears the authentication cookie, ending the user's session.
+		/// </summary>
+		/// <response code="200">Logged out successfully. A missing or already-invalid cookie is treated as success.</response>
 		[HttpGet("logout")]
 		public async Task<ActionResult<ApiResponseViewModel>> Logout()
 		{

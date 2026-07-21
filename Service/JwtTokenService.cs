@@ -99,12 +99,6 @@ namespace Service
 				new Claim(ClaimTypes.SerialNumber, user.SerialNumber, ClaimValueTypes.String, jwtIssuer),
 				new Claim(ClaimTypes.UserData, user.Id.ToString(), ClaimValueTypes.String, jwtIssuer),
 				new Claim(
-					"ProviderKey",
-					user.Provider == Provider.Google ? user.ProviderKey : string.Empty,
-					ClaimValueTypes.String,
-					jwtIssuer
-				),
-				new Claim(
 					"ProviderRefreshToken",
 					user.ProviderRefreshToken,
 					ClaimValueTypes.String,

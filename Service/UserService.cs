@@ -1,10 +1,10 @@
-﻿using Domain.Entities;
+﻿using System.Security.Claims;
+using System.Threading.Tasks;
+using Domain.Entities;
 using Domain.Enums;
 using Domain.Repositories;
 using Domain.Services;
 using Microsoft.AspNetCore.Http;
-using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace Service
 {
@@ -14,7 +14,11 @@ namespace Service
 		private readonly IHttpContextAccessor _contextAccessor;
 		private readonly ISecurityService _securityService;
 
-		public UserService(IUserRepository userRepository, IHttpContextAccessor contextAccessor, ISecurityService securityService)
+		public UserService(
+			IUserRepository userRepository,
+			IHttpContextAccessor contextAccessor,
+			ISecurityService securityService
+		)
 		{
 			_userRepository = userRepository;
 			_contextAccessor = contextAccessor;
@@ -26,10 +30,16 @@ namespace Service
 			return await _userRepository.InsertOneAsync(user);
 		}
 
-		public async Task<User> FindUserByLoginAsync(string email, Provider provider, string providerKey)
+		public async Task<User> FindUserByLoginAsync(
+			string email,
+			Provider provider,
+			string providerKey
+		)
 		{
 			string providerKeyHash = _securityService.GetSha256Hash(providerKey);
-			return await _userRepository.FindUserAsync(s => s.Email == email && s.Provider == provider && s.ProviderKey == providerKeyHash);
+			return await _userRepository.FindUserAsync(s =>
+				s.Email == email && s.Provider == provider && s.ProviderKey == providerKeyHash
+			);
 		}
 
 		public async ValueTask<User> FindUserByIdAsync(string userId)
@@ -52,12 +62,20 @@ namespace Service
 			return await _userRepository.DeleteExpiredTokensAsync(userId);
 		}
 
-		public async Task<bool> DeleteTokensWithSameRefreshTokenSourceAsync(string refreshTokenIdHashSource, string userId)
+		public async Task<bool> DeleteTokensWithSameRefreshTokenSourceAsync(
+			string refreshTokenIdHashSource,
+			string userId
+		)
 		{
-			return await _userRepository.DeleteTokensWithSameRefreshTokenSourceAsync(refreshTokenIdHashSource, userId);
+			return await _userRepository.DeleteTokensWithSameRefreshTokenSourceAsync(
+				refreshTokenIdHashSource,
+				userId
+			);
 		}
 
-		public async Task<(Token token, User user)> FindUserAndTokenByRefreshTokenAsync(string refreshToken)
+		public async Task<(Token token, User user)> FindUserAndTokenByRefreshTokenAsync(
+			string refreshToken
+		)
 		{
 			return await _userRepository.FindUserAndTokenByRefreshTokenAsync(refreshToken);
 		}
@@ -86,6 +104,17 @@ namespace Service
 		public Task<bool> SetEmailVerifiedAsync(string userId)
 		{
 			return _userRepository.SetEmailVerifiedAsync(userId);
+		}
+
+		public Task<bool> SetProviderPropertiesAsync(
+			string userId,
+			string providerRefreshToken
+		)
+		{
+			return _userRepository.SetProviderPropertiesAsync(
+				userId,
+				providerRefreshToken
+			);
 		}
 	}
 }
