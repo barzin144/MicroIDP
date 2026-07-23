@@ -137,12 +137,53 @@ openssl rsa -pubin -in public_key.pem -outform DER | base64 -w 0
 
 ### 4. Create a `.env` File
 
-Create a `.env` file in the repository root with the following variables:
+Copy `.env_SAMPLE` to `.env` in the repository root and fill in the placeholder values:
+
+```shell
+cp .env_SAMPLE .env
+```
+
+| Variable | Description |
+|---|---|
+| `ASPNETCORE_Kestrel__Certificates__Default__Path` | Path to the HTTPS `.pfx` certificate inside the container |
+| `ASPNETCORE_Kestrel__Certificates__Default__Password` | Password for the `.pfx` certificate |
+| `ASPNETCORE_URLS` | Kestrel listen URLs (e.g. `https://+;http://+`) |
+| `Jwt__PrivateKey` | Base64-encoded RSA private key (DER format) |
+| `Jwt__Issuer` | JWT issuer — must match the IDP's public URL |
+| `Jwt__Audience` | JWT audience — the client app's URL |
+| `Jwt__AccessTokenExpirationMinutes` | Access token lifetime in minutes |
+| `Jwt__RefreshTokenExpirationMinutes` | Refresh token lifetime in minutes |
+| `Jwt__CookieName` | Name of the encrypted HTTP-only cookie |
+| `Jwt__DataProtectionApplicationName` | ASP.NET Core Data Protection app name (must match client app) |
+| `Jwt__DataProtectionPurpose` | Data Protection purpose string (must match client app) |
+| `Jwt__DataProtectionKeysPath` | Path to the shared Data Protection keys folder |
+| `Jwt__AllowMultipleLoginsFromTheSameUser` | Allow concurrent sessions for the same user |
+| `Jwt__AllowSignoutAllUserActiveClients` | Revoke all active tokens on sign-out |
+| `ConnectionStrings__MongoDb` | MongoDB connection string |
+| `DbName` | MongoDB database name |
+| `SMTP__Host` | SMTP server hostname |
+| `SMTP__Port` | SMTP server port |
+| `SMTP__Username` | SMTP username |
+| `SMTP__Password` | SMTP password |
+| `EmailTemplate__ResetPasswordUrl` | URL for the reset-password page in your client app |
+| `EmailTemplate__EmailVerificationUrl` | URL for the email-verification page in your client app |
+| `EmailTemplate__ApplicationName` | Application name shown in emails |
+| `EmailTemplate__EmailDomain` | Domain used as the sender address (e.g. `microidp.com`) |
+| `OAuth__GoogleClientId` | Google OAuth 2.0 client ID |
+| `OAuth__GoogleClientSecret` | Google OAuth 2.0 client secret |
+| `OAuth__GoogleCallbackURL` | Client app page Google redirects to after login |
+| `OAuth__GoogleConnectCallbackURL` | Client app page Google redirects to after account linking |
+| `Turnstile__ChallengeBaseUrl` | Cloudflare Turnstile verification base URL |
+| `Turnstile__SecretKey` | Cloudflare Turnstile secret key |
+| `DataProtection__GeneralPurposeKey` | Random secret string for general-purpose data protection |
+| `Cors__Origins` | Allowed CORS origin(s), comma-separated |
+| `EnableSwagger` | Set to `false` in production |
 
 ```env
 # HTTPS certificate
 ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetcore.pfx
 ASPNETCORE_Kestrel__Certificates__Default__Password=<CERT_PASSWORD>
+ASPNETCORE_URLS=https://+;http://+
 
 # RSA private key (base64-encoded DER)
 Jwt__PrivateKey=<PRIVATE_KEY>
@@ -173,6 +214,7 @@ SMTP__Password=<SMTP_PASSWORD>
 EmailTemplate__ResetPasswordUrl=https://localhost:8001/reset-password
 EmailTemplate__EmailVerificationUrl=https://localhost:8001/verify-email
 EmailTemplate__ApplicationName=MicroIDP
+EmailTemplate__EmailDomain=<YOUR_EMAIL_DOMAIN>
 
 # Google OAuth
 OAuth__GoogleClientId=<GOOGLE_CLIENT_ID>
@@ -181,10 +223,17 @@ OAuth__GoogleCallbackURL=<CLIENT_APP_GOOGLE_CALLBACK_URL>
 OAuth__GoogleConnectCallbackURL=<CLIENT_APP_GOOGLE_CONNECT_CALLBACK_URL>
 
 # Cloudflare Turnstile
+Turnstile__ChallengeBaseUrl=https://challenges.cloudflare.com
 Turnstile__SecretKey=<TURNSTILE_SECRET_KEY>
 
 # Data Protection
 DataProtection__GeneralPurposeKey=<RANDOM_SECRET_STRING>
+
+# CORS
+Cors__Origins=http://localhost:3000
+
+# Swagger (disable in production)
+EnableSwagger=true
 ```
 
 ### 5. Configure Google Sign-In
