@@ -537,7 +537,6 @@ namespace WebApi.Controllers
 			{
 				RedirectUri = _oAuthOptions.GoogleCallbackURL,
 			};
-			properties.Parameters.Add("prompt", "consent");
 			return Challenge(properties, GoogleDefaults.AuthenticationScheme);
 		}
 
